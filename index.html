@@ -3,101 +3,153 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FonoApp - Controle de Consultas</title>
-  
-  <!-- Suporte a PWA no iOS Safari -->
+  <title>EmiliaCare - Agenda de Atendimentos</title>
+
+  <!-- PWA / iOS Safari -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="FonoApp">
+  <meta name="apple-mobile-web-app-title" content="EmiliaCare">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="manifest" href="manifest.json">
 
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Supabase JS Client via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Regras de agenda e nota fiscal (testadas em regras.test.js) -->
+  <script src="regras.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans pb-10">
 
+  <!-- TELA DE LOGIN -->
+  <section id="sec-login" class="min-h-screen flex items-center justify-center p-4">
+    <form id="form-login" onsubmit="login(event)" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 w-full max-w-xs space-y-3">
+      <div class="mx-auto mb-1 w-16 h-16 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-teal-600/30">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8">
+          <path d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold text-gray-800 text-center">EmiliaCare</h1>
+      <p class="text-xs font-medium text-gray-400 text-center uppercase tracking-widest mb-2">Fonoaudiologia</p>
+      <input type="email" id="login-email" placeholder="E-mail" required autocomplete="username" class="w-full p-2 border rounded text-sm">
+      <input type="password" id="login-senha" placeholder="Senha" required autocomplete="current-password" class="w-full p-2 border rounded text-sm">
+      <button type="submit" id="btn-login" class="w-full bg-teal-600 text-white font-semibold py-2 rounded text-sm">Entrar</button>
+      <p id="login-erro" class="text-red-600 text-xs text-center hidden"></p>
+    </form>
+  </section>
+
+  <!-- APP (só aparece autenticado) -->
+  <div id="app-shell" class="hidden">
+
   <!-- Cabeçalho -->
   <header class="bg-teal-700 text-white p-4 shadow-md sticky top-0 z-10 flex justify-between items-center">
-    <h1 class="text-xl font-bold tracking-wide">🗣️ FonoApp</h1>
-    <span id="status-conexao" class="text-xs bg-teal-800 px-2 py-1 rounded">Pronto</span>
+    <h1 class="text-xl font-bold tracking-wide flex items-center gap-2">
+      <span class="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+        </svg>
+      </span>
+      EmiliaCare
+    </h1>
+    <div class="flex items-center gap-2">
+      <span id="status-conexao" class="text-xs bg-teal-800 px-2 py-1 rounded">Pronto</span>
+      <button onclick="logout()" class="text-xs bg-teal-800 px-2 py-1 rounded hover:bg-teal-900">Sair</button>
+    </div>
   </header>
 
   <!-- Navegação por Abas -->
-  <nav class="flex bg-white border-b border-gray-200">
-    <button onclick="mudarAba('atendimento')" id="tab-atendimento" class="flex-1 py-3 text-center font-medium border-b-2 border-teal-600 text-teal-600">Atendimento</button>
+  <nav class="flex bg-white border-b border-gray-200 text-sm">
+    <button onclick="mudarAba('hoje')" id="tab-hoje" class="flex-1 py-3 text-center font-medium border-b-2 border-teal-600 text-teal-600">Hoje</button>
+    <button onclick="mudarAba('agenda')" id="tab-agenda" class="flex-1 py-3 text-center font-medium text-gray-500 border-b-2 border-transparent">Agenda</button>
     <button onclick="mudarAba('pacientes')" id="tab-pacientes" class="flex-1 py-3 text-center font-medium text-gray-500 border-b-2 border-transparent">Pacientes</button>
-    <button onclick="mudarAba('relatorios')" id="tab-relatorios" class="flex-1 py-3 text-center font-medium text-gray-500 border-b-2 border-transparent">Relatórios</button>
+    <button onclick="mudarAba('nota')" id="tab-nota" class="flex-1 py-3 text-center font-medium text-gray-500 border-b-2 border-transparent">Nota fiscal</button>
   </nav>
 
   <main class="max-w-md mx-auto p-4">
 
-    <!-- ABA 1: ATENDIMENTO / GRAVAÇÃO -->
-    <section id="sec-atendimento" class="space-y-6">
-      <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-        <label class="block text-sm font-semibold mb-2">1. Selecione o Paciente</label>
-        <select id="select-paciente" class="w-full p-3 border rounded-lg bg-gray-50 text-base">
-          <option value="">Carregando pacientes...</option>
-        </select>
-
-        <button onclick="iniciarAtendimento()" id="btn-iniciar" class="w-full mt-4 bg-teal-600 text-white font-semibold p-3 rounded-lg shadow hover:bg-teal-700 transition">
-          ▶️ Iniciar Atendimento
-        </button>
+    <!-- ABA 1: AGENDA DO DIA / INICIAR ATENDIMENTO -->
+    <section id="sec-hoje" class="space-y-4">
+      <div class="flex items-center gap-2">
+        <button onclick="mudarDia(-1)" class="px-3 py-2 bg-white border rounded-lg">‹</button>
+        <input type="date" id="dia-agenda" onchange="carregarDia()" class="flex-1 p-2 border rounded-lg text-sm text-center">
+        <button onclick="mudarDia(1)" class="px-3 py-2 bg-white border rounded-lg">›</button>
       </div>
+      <p id="dia-titulo" class="text-center text-sm font-semibold text-gray-600"></p>
 
-      <!-- Painel de Gravador (Oculto no início) -->
-      <div id="painel-gravacao" class="hidden bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center space-y-4">
-        <div class="inline-block bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-semibold animate-pulse">
-          🔴 Em Atendimento
-        </div>
-        
-        <div id="cronometro" class="text-4xl font-mono font-bold text-gray-700">00:00</div>
+      <ul id="lista-dia" class="space-y-2"></ul>
 
-        <div class="flex justify-center gap-3">
-          <button id="btn-gravar" onclick="alternarGravacao()" class="bg-red-500 text-white font-semibold px-5 py-3 rounded-lg shadow hover:bg-red-600 flex items-center gap-2">
-            🎙️ Gravar Evolução
-          </button>
-        </div>
-
-        <p id="status-audio" class="text-xs text-gray-500 italic">Clique em "Gravar Evolução" para narrar o atendimento.</p>
-
-        <hr class="my-4">
-
-        <button onclick="finalizarAtendimento()" id="btn-salvar" class="w-full bg-emerald-600 text-white font-semibold p-3 rounded-lg shadow hover:bg-emerald-700 disabled:opacity-50" disabled>
-          💾 Finalizar e Processar IA
-        </button>
-      </div>
-
-      <!-- Exibição do Resultado Gerado -->
-      <div id="resultado-gerado" class="hidden space-y-4">
-        <div class="bg-white p-4 rounded-xl border border-gray-200">
-          <h3 class="font-bold text-teal-800 text-sm mb-1">👨‍👩‍👦 Relatório da Família</h3>
-          <p id="txt-familia" class="text-sm text-gray-600 whitespace-pre-line"></p>
-          <button onclick="compartilharWhatsApp()" class="mt-3 w-full bg-green-500 text-white text-xs font-bold py-2 rounded flex items-center justify-center gap-2">
-            📲 Enviar no WhatsApp
-          </button>
-        </div>
-
-        <div class="bg-white p-4 rounded-xl border border-gray-200">
-          <h3 class="font-bold text-gray-800 text-sm mb-1">📋 Evolução Técnica (Prontuário/Unimed)</h3>
-          <p id="txt-tecnico" class="text-sm text-gray-600 whitespace-pre-line"></p>
-        </div>
+      <!-- Atendimento fora da agenda -->
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-2">
+        <h4 class="font-bold text-sm text-gray-600">Atendimento fora da agenda</h4>
+        <select id="extra-paciente" class="w-full p-2 border rounded text-sm"></select>
+        <button onclick="iniciarExtra()" id="btn-extra" class="w-full bg-gray-700 text-white font-semibold py-2 rounded text-sm">Iniciar atendimento</button>
       </div>
     </section>
 
-    <!-- ABA 2: CADASTRO DE PACIENTES -->
+    <!-- ABA 2: AGENDA (SEMANA FIXA + AVULSOS) -->
+    <section id="sec-agenda" class="hidden space-y-4">
+      <form onsubmit="salvarAgendamento(event)" class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
+        <h3 class="font-bold text-lg text-gray-700">Agendamento avulso</h3>
+        <p class="text-xs text-gray-500">Reposição ou sessão extra numa data específica. Os horários fixos de cada paciente são definidos na aba Pacientes.</p>
+        <select id="ag-paciente" required class="w-full p-2 border rounded text-sm"></select>
+        <div class="grid grid-cols-2 gap-2">
+          <input type="date" id="ag-data" required class="p-2 border rounded text-sm">
+          <input type="time" id="ag-hora" required class="p-2 border rounded text-sm">
+        </div>
+        <input type="text" id="ag-obs" maxlength="255" placeholder="Observação (ex.: reposição de 03/11)" class="w-full p-2 border rounded text-sm">
+        <button type="submit" class="w-full bg-teal-600 text-white font-semibold py-2 rounded text-sm">Agendar</button>
+      </form>
+
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <h4 class="font-bold text-sm mb-2 text-gray-600">Próximos agendamentos avulsos</h4>
+        <ul id="lista-avulsos" class="divide-y text-sm"></ul>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <h4 class="font-bold text-sm mb-2 text-gray-600">Semana fixa</h4>
+        <div id="semana-fixa" class="text-sm space-y-2"></div>
+      </div>
+    </section>
+
+    <!-- ABA 3: CADASTRO DE PACIENTES -->
     <section id="sec-pacientes" class="hidden space-y-4">
       <form id="form-paciente" onsubmit="salvarPaciente(event)" class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
-        <h3 class="font-bold text-lg text-gray-700">Novo Paciente</h3>
+        <div class="flex justify-between items-center">
+          <h3 id="form-paciente-titulo" class="font-bold text-lg text-gray-700">Novo Paciente</h3>
+          <button type="button" id="btn-cancelar-edicao" onclick="limparFormPaciente()" class="hidden text-xs text-gray-500 underline">Cancelar</button>
+        </div>
+        <input type="hidden" id="p-id">
         <input type="text" id="p-nome" placeholder="Nome Completo *" required class="w-full p-2 border rounded text-sm">
         <div class="grid grid-cols-2 gap-2">
           <input type="text" id="p-cpf" placeholder="CPF" class="p-2 border rounded text-sm">
           <input type="text" id="p-unimed" placeholder="Carteira Unimed" class="p-2 border rounded text-sm">
         </div>
         <input type="text" id="p-tel" placeholder="Telefone do Responsável" class="w-full p-2 border rounded text-sm">
-        <button type="submit" class="w-full bg-teal-600 text-white font-semibold py-2 rounded text-sm">Cadastrar</button>
+        <input type="email" id="p-email" placeholder="E-mail do Responsável" class="w-full p-2 border rounded text-sm">
+        <div class="grid grid-cols-3 gap-2">
+          <input type="text" id="p-logradouro" placeholder="Logradouro" class="col-span-2 p-2 border rounded text-sm">
+          <input type="text" id="p-numero" placeholder="Número" class="p-2 border rounded text-sm">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <input type="text" id="p-bairro" placeholder="Bairro" class="p-2 border rounded text-sm">
+          <input type="text" id="p-cidade" placeholder="Cidade" class="p-2 border rounded text-sm">
+        </div>
+        <label id="p-ativo-label" class="hidden flex items-center gap-2 text-sm">
+          <input type="checkbox" id="p-ativo" checked> Ativo (desmarque na alta: sai da agenda, o histórico fica)
+        </label>
+        <button type="submit" id="btn-salvar-paciente" class="w-full bg-teal-600 text-white font-semibold py-2 rounded text-sm">Cadastrar</button>
       </form>
+
+      <!-- Horários fixos do paciente em edição -->
+      <div id="painel-horarios" class="hidden bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
+        <h3 class="font-bold text-gray-700">Horários fixos semanais</h3>
+        <ul id="lista-horarios" class="divide-y text-sm"></ul>
+        <div class="grid grid-cols-5 gap-2">
+          <select id="h-dia" class="col-span-2 p-2 border rounded text-sm"></select>
+          <input type="time" id="h-hora" class="col-span-2 p-2 border rounded text-sm">
+          <button onclick="adicionarHorario()" class="bg-teal-600 text-white font-semibold rounded text-sm">+</button>
+        </div>
+      </div>
 
       <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <h4 class="font-bold text-sm mb-2 text-gray-600">Pacientes Cadastrados</h4>
@@ -105,226 +157,494 @@
       </div>
     </section>
 
-    <!-- ABA 3: RELATÓRIOS MENSAL UNIMED -->
-    <section id="sec-relatorios" class="hidden space-y-4">
+    <!-- ABA 4: OBSERVAÇÃO PARA A NOTA FISCAL -->
+    <section id="sec-nota" class="hidden space-y-4">
       <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
-        <h3 class="font-bold text-gray-700">Consolidado Mensal</h3>
-        <select id="rel-paciente" class="w-full p-2 border rounded text-sm"></select>
-        <button onclick="gerarRelatorioMensal()" class="w-full bg-teal-600 text-white font-semibold py-2 rounded text-sm">Gerar Relatório</button>
+        <h3 class="font-bold text-gray-700">Observação da nota fiscal</h3>
+        <select id="nf-paciente" class="w-full p-2 border rounded text-sm"></select>
+        <input type="month" id="nf-mes" class="w-full p-2 border rounded text-sm">
+        <button onclick="gerarObservacao()" class="w-full bg-teal-600 text-white font-semibold py-2 rounded text-sm">Gerar</button>
       </div>
 
-      <div id="tabela-relatorio" class="hidden bg-white p-4 rounded-xl border space-y-3">
-        <div id="conteudo-impressao" class="text-xs space-y-2"></div>
-        <button onclick="window.print()" class="w-full bg-gray-700 text-white text-xs py-2 rounded">🖨️ Imprimir / Salvar PDF</button>
+      <div id="nf-resultado" class="hidden bg-white p-4 rounded-xl border space-y-3">
+        <ul id="nf-datas" class="divide-y text-sm"></ul>
+        <p id="nf-total" class="text-right font-semibold text-sm"></p>
+        <textarea id="nf-texto" rows="5" class="w-full p-2 border rounded text-sm bg-gray-50"></textarea>
+        <button onclick="copiarObservacao()" id="btn-copiar" class="w-full bg-gray-700 text-white text-sm py-2 rounded">📋 Copiar texto</button>
       </div>
     </section>
 
   </main>
 
+  </div>
+  <!-- /app-shell -->
+
   <!-- SCRIPTS DA APLICAÇÃO -->
   <script>
     // -------------------------------------------------------------
-    // CONFIGURAÇÕES DAS APIS (Substitua pelos seus dados)
+    // CONFIGURAÇÕES DO SUPABASE (Substitua pelos seus dados)
     // -------------------------------------------------------------
     const SUPABASE_URL = "https://SEU-PROJETO.supabase.co";
     const SUPABASE_KEY = "SUA-CHAVE-ANON-SUPABASE";
-    const GROQ_API_KEY = "SUA-CHAVE-GROQ-CLOUD";
 
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const R = window.Regras;
 
-    // Variáveis Globais de Estado
-    let mediaRecorder, audioChunks = [], blobAudioFinal = null;
-    let consultaAtualId = null, tempoInicio = null, timerInterval = null;
+    // Cache do que muda pouco; recarregado depois de cada alteração.
+    let pacientes = [], horariosFixos = [];
 
-    // Inicialização
-    document.addEventListener("DOMContentLoaded", () => {
-      carregarPacientes();
+    // Escapa texto digitado pelo usuário antes de ir para o innerHTML.
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    // -------------------------------------------------------------
+    // AUTENTICAÇÃO (Supabase Auth)
+    // -------------------------------------------------------------
+    document.addEventListener("DOMContentLoaded", async () => {
+      const hoje = new Date();
+      document.getElementById("dia-agenda").value = R.dataISO(hoje);
+      document.getElementById("ag-data").value = R.dataISO(hoje);
+      document.getElementById("nf-mes").value = R.dataISO(hoje).slice(0, 7);
+      document.getElementById("h-dia").innerHTML = R.DIAS_SEMANA.map((d, i) => `<option value="${i}">${d}</option>`).join('');
+
+      const { data: { session } } = await db.auth.getSession();
+      atualizarUIAuth(session);
     });
+
+    db.auth.onAuthStateChange((_event, session) => {
+      atualizarUIAuth(session);
+    });
+
+    function atualizarUIAuth(session) {
+      const telaLogin = document.getElementById("sec-login");
+      const shell = document.getElementById("app-shell");
+
+      if (session) {
+        telaLogin.classList.add("hidden");
+        shell.classList.remove("hidden");
+        recarregarTudo();
+      } else {
+        telaLogin.classList.remove("hidden");
+        shell.classList.add("hidden");
+      }
+    }
+
+    async function login(e) {
+      e.preventDefault();
+      const email = document.getElementById("login-email").value;
+      const senha = document.getElementById("login-senha").value;
+      const erroEl = document.getElementById("login-erro");
+      const btn = document.getElementById("btn-login");
+
+      erroEl.classList.add("hidden");
+      btn.disabled = true;
+      btn.innerText = "Entrando...";
+
+      const { error } = await db.auth.signInWithPassword({ email, password: senha });
+
+      btn.disabled = false;
+      btn.innerText = "Entrar";
+
+      if (error) {
+        erroEl.innerText = "E-mail ou senha inválidos.";
+        erroEl.classList.remove("hidden");
+      }
+    }
+
+    async function logout() {
+      await db.auth.signOut();
+    }
 
     // -------------------------------------------------------------
     // GERENCIAMENTO DE ABAS
     // -------------------------------------------------------------
     function mudarAba(aba) {
-      ['atendimento', 'pacientes', 'relatorios'].forEach(a => {
+      ['hoje', 'agenda', 'pacientes', 'nota'].forEach(a => {
         document.getElementById(`sec-${a}`).classList.add('hidden');
         document.getElementById(`tab-${a}`).className = "flex-1 py-3 text-center font-medium text-gray-500 border-b-2 border-transparent";
       });
       document.getElementById(`sec-${aba}`).classList.remove('hidden');
       document.getElementById(`tab-${aba}`).className = "flex-1 py-3 text-center font-medium border-b-2 border-teal-600 text-teal-600";
+
+      if (aba === 'hoje') carregarDia();
+      if (aba === 'agenda') carregarAvulsos();
+    }
+
+    async function recarregarTudo() {
+      await Promise.all([carregarPacientes(), carregarHorariosFixos()]);
+      renderSemanaFixa();
+      carregarDia();
+      carregarAvulsos();
+    }
+
+    function erroConexao(error) {
+      document.getElementById("status-conexao").innerText = "Erro de conexão";
+      console.error(error);
+    }
+
+    function nomePaciente(id) {
+      return pacientes.find(p => p.id === id)?.nome || '(paciente removido)';
     }
 
     // -------------------------------------------------------------
-    // LÓGICA DE ATENDIMENTO E CRONÔMETRO
+    // AGENDA DO DIA E INÍCIO DO ATENDIMENTO
     // -------------------------------------------------------------
-    async function iniciarAtendimento() {
-      const pacienteId = document.getElementById("select-paciente").value;
+    function mudarDia(delta) {
+      const input = document.getElementById("dia-agenda");
+      const [a, m, d] = input.value.split('-').map(Number);
+      input.value = R.dataISO(new Date(a, m - 1, d + delta));
+      carregarDia();
+    }
+
+    async function carregarDia() {
+      const data = document.getElementById("dia-agenda").value;
+      if (!data) return;
+
+      const [{ data: avulsos, error: e1 }, { data: atendimentos, error: e2 }] = await Promise.all([
+        db.from('agendamentos').select('*').eq('data', data),
+        db.from('consultas').select('id, paciente_id, data_atendimento, horario_inicio').eq('data_atendimento', data),
+      ]);
+      if (e1 || e2) return erroConexao(e1 || e2);
+
+      const hoje = R.dataISO(new Date());
+      const titulo = data === hoje ? 'Hoje' : R.DIAS_SEMANA[R.diaDaSemana(data)];
+      document.getElementById("dia-titulo").innerText = `${titulo} — ${R.fmtData(data)}`;
+
+      const itens = R.agendaDoDia(data, pacientes, horariosFixos, avulsos, atendimentos);
+      const lista = document.getElementById("lista-dia");
+
+      if (itens.length === 0) {
+        lista.innerHTML = `<li class="text-center text-sm text-gray-500 py-6">Nenhum atendimento agendado neste dia.</li>`;
+        return;
+      }
+
+      lista.innerHTML = itens.map(item => {
+        const nome = esc(item.paciente?.nome || '(paciente removido)');
+        const etiqueta = { fixo: 'Fixo', avulso: 'Avulso', extra: 'Fora da agenda' }[item.origem];
+        const obs = item.observacao ? `<p class="text-xs text-gray-500">${esc(item.observacao)}</p>` : '';
+
+        let acao;
+        if (item.atendimento) {
+          const hora = item.atendimento.horario_inicio
+            ? new Date(item.atendimento.horario_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            : '';
+          acao = `
+            <div class="text-right">
+              <span class="text-emerald-700 text-sm font-semibold">✓ Iniciado ${hora ? 'às ' + hora : ''}</span>
+              <button onclick="desfazerAtendimento('${item.atendimento.id}')" class="block ml-auto text-xs text-gray-400 underline">desfazer</button>
+            </div>`;
+        } else if (data > hoje) {
+          acao = `<span class="text-xs text-gray-400">Agendado</span>`;
+        } else {
+          const rotulo = data === hoje ? '▶️ Iniciar' : 'Registrar';
+          acao = `<button onclick="iniciarAtendimento('${item.paciente_id}', '${item.hora || ''}', this)" class="bg-teal-600 text-white font-semibold px-4 py-2 rounded-lg text-sm shadow hover:bg-teal-700">${rotulo}</button>`;
+        }
+
+        return `
+          <li class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between gap-3">
+            <div>
+              <p class="font-mono font-bold text-gray-700">${R.fmtHora(item.hora)} <span class="ml-1 text-[10px] font-sans font-medium uppercase text-gray-400">${etiqueta}</span></p>
+              <p class="font-semibold">${nome}</p>
+              ${obs}
+            </div>
+            ${acao}
+          </li>`;
+      }).join('');
+    }
+
+    // Registra o atendimento: uma linha em consultas com a data e o horário do clique.
+    // Para um dia passado (esqueceu de clicar), usa o horário agendado naquela data.
+    async function iniciarAtendimento(pacienteId, horaAgendada, botao) {
+      const data = document.getElementById("dia-agenda").value;
+      const hoje = R.dataISO(new Date());
+      if (data > hoje) return alert("Não dá para iniciar um atendimento em data futura.");
+
+      const inicio = data === hoje ? new Date() : new Date(`${data}T${horaAgendada || '12:00'}`);
+      if (botao) botao.disabled = true;
+
+      const { error } = await db.from('consultas').insert([
+        { paciente_id: pacienteId, data_atendimento: data, horario_inicio: inicio.toISOString() }
+      ]);
+
+      if (error) {
+        if (botao) botao.disabled = false;
+        return alert("Erro ao registrar atendimento: " + error.message);
+      }
+      carregarDia();
+    }
+
+    async function iniciarExtra() {
+      const pacienteId = document.getElementById("extra-paciente").value;
       if (!pacienteId) return alert("Selecione um paciente!");
+      await iniciarAtendimento(pacienteId, '', document.getElementById("btn-extra"));
+      document.getElementById("btn-extra").disabled = false;
+      document.getElementById("extra-paciente").value = "";
+    }
 
-      const { data, error } = await db.from('consultas').insert([
-        { paciente_id: pacienteId, horario_inicio: new Date().toISOString() }
-      ]).select().single();
-
-      if (error) return alert("Erro ao iniciar consulta: " + error.message);
-
-      consultaAtualId = data.id;
-      document.getElementById("painel-gravacao").classList.remove("hidden");
-      document.getElementById("btn-iniciar").classList.add("hidden");
-
-      // Inicia cronômetro
-      tempoInicio = Date.now();
-      timerInterval = setInterval(() => {
-        const seg = Math.floor((Date.now() - tempoInicio) / 1000);
-        const m = String(Math.floor(seg / 60)).padStart(2, '0');
-        const s = String(seg % 60).padStart(2, '0');
-        document.getElementById("cronometro").innerText = `${m}:${s}`;
-      }, 1000);
+    async function desfazerAtendimento(id) {
+      if (!confirm("Remover este atendimento? Ele deixa de contar na nota fiscal.")) return;
+      const { error } = await db.from('consultas').delete().eq('id', id);
+      if (error) return alert("Erro ao remover: " + error.message);
+      carregarDia();
     }
 
     // -------------------------------------------------------------
-    // GRAVAÇÃO DE ÁUDIO (COMPATÍVEL COM IOS/SAFARI)
+    // AGENDAMENTOS AVULSOS E SEMANA FIXA
     // -------------------------------------------------------------
-    async function alternarGravacao() {
-      const btn = document.getElementById("btn-gravar");
-
-      if (!mediaRecorder || mediaRecorder.state === "inactive") {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        
-        // MimeType compatível com iOS Safari
-        const options = MediaRecorder.isTypeSupported('audio/mp4') ? { mimeType: 'audio/mp4' } : {};
-        mediaRecorder = new MediaRecorder(stream, options);
-        audioChunks = [];
-
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-        mediaRecorder.onstop = () => {
-          blobAudioFinal = new Blob(audioChunks, { type: mediaRecorder.mimeType });
-          document.getElementById("btn-salvar").disabled = false;
-          document.getElementById("status-audio").innerText = "Áudio gravado com sucesso!";
-        };
-
-        mediaRecorder.start();
-        btn.innerText = "⏹️ Parar Gravação";
-        btn.classList.replace("bg-red-500", "bg-gray-700");
-      } else {
-        mediaRecorder.stop();
-        btn.innerText = "🎙️️ Re-gravar";
-        btn.classList.replace("bg-gray-700", "bg-red-500");
-      }
-    }
-
-    // -------------------------------------------------------------
-    // TRANSCRIÇÃO & PROCESSAMENTO IA (GROQ API)
-    // -------------------------------------------------------------
-    async function finalizarAtendimento() {
-      if (!blobAudioFinal) return alert("Grave o áudio da evolução antes de finalizar.");
-
-      clearInterval(timerInterval);
-      document.getElementById("status-audio").innerText = "Processando áudio e gerando relatórios...";
-
-      try {
-        // 1. Transcrever via Whisper na Groq Cloud
-        const formData = new FormData();
-        formData.append("file", blobAudioFinal, "audio.mp4");
-        formData.append("model", "whisper-large-v3");
-        formData.append("language", "pt");
-
-        const resWhisper = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${GROQ_API_KEY}` },
-          body: formData
-        });
-        const dataWhisper = await resWhisper.json();
-        const textoBruto = dataWhisper.text;
-
-        // 2. Formatar Evolução e Relatório via Llama 3.3
-        const promptSystem = `Você é um assistente fonoaudiológico. Receba o áudio transcrito e retorne ESTRITAMENTE um JSON com as chaves:
-        "evolucao_tecnica": (Evolução clínica formal, corrigida e estruturada em Tópicos para prontuário/Unimed)
-        "relatorio_familia": (Resumo acolhedor e simples em linguagem leiga para enviar no WhatsApp aos pais)`;
-
-        const resLLM = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${GROQ_API_KEY}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            messages: [
-              { role: "system", content: promptSystem },
-              { role: "user", content: textoBruto }
-            ],
-            response_format: { type: "json_object" }
-          })
-        });
-
-        const dataLLM = await resLLM.json();
-        const resultado = JSON.parse(dataLLM.choices[0].message.content);
-
-        // 3. Atualizar no Supabase
-        const horarioFim = new Date().toISOString();
-        const duracaoMin = Math.round((Date.now() - tempoInicio) / 60000);
-
-        await db.from('consultas').update({
-          horario_fim: horarioFim,
-          duracao_minutos: duracaoMin,
-          transcricao_bruta: textoBruto,
-          evolucao_tecnica: resultado.evolucao_tecnica,
-          relatorio_familia: resultado.relatorio_familia
-        }).eq('id', consultaAtualId);
-
-        // Exibir na Tela
-        document.getElementById("txt-familia").innerText = resultado.relatorio_familia;
-        document.getElementById("txt-tecnico").innerText = resultado.evolucao_tecnica;
-        document.getElementById("resultado-gerado").classList.remove("hidden");
-        document.getElementById("painel-gravacao").classList.add("hidden");
-
-      } catch (err) {
-        alert("Erro ao processar: " + err.message);
-      }
-    }
-
-    // -------------------------------------------------------------
-    // CADASTRO DE PACIENTES
-    // -------------------------------------------------------------
-    async function salvarPaciente(e) {
+    async function salvarAgendamento(e) {
       e.preventDefault();
       const novo = {
-        nome: document.getElementById("p-nome").value,
-        cpf: document.getElementById("p-cpf").value,
-        carteira_unimed: document.getElementById("p-unimed").value,
-        telefone_responsavel: document.getElementById("p-tel").value
+        paciente_id: document.getElementById("ag-paciente").value,
+        data: document.getElementById("ag-data").value,
+        hora: document.getElementById("ag-hora").value,
+        observacao: document.getElementById("ag-obs").value || null,
       };
+      const { error } = await db.from('agendamentos').insert([novo]);
+      if (error) return alert("Erro ao agendar: " + error.message);
 
-      const { error } = await db.from('pacientes').insert([novo]);
-      if (error) alert("Erro ao salvar: " + error.message);
-      else {
-        document.getElementById("form-paciente").reset();
-        carregarPacientes();
+      document.getElementById("ag-hora").value = "";
+      document.getElementById("ag-obs").value = "";
+      recarregarAgenda();
+    }
+
+    function recarregarAgenda() {
+      carregarAvulsos();
+      carregarDia();
+    }
+
+    async function carregarAvulsos() {
+      const { data, error } = await db.from('agendamentos').select('*')
+        .gte('data', R.dataISO(new Date()))
+        .order('data').order('hora');
+      if (error) return erroConexao(error);
+
+      const lista = document.getElementById("lista-avulsos");
+      if (data.length === 0) {
+        lista.innerHTML = `<li class="py-2 text-gray-500">Nenhum agendamento avulso pela frente.</li>`;
+        return;
       }
+      lista.innerHTML = data.map(a => `
+        <li class="py-2 flex justify-between items-center gap-2">
+          <div>
+            <span class="font-mono">${R.fmtData(a.data)} ${R.fmtHora(a.hora)}</span> — ${esc(nomePaciente(a.paciente_id))}
+            ${a.observacao ? `<p class="text-xs text-gray-500">${esc(a.observacao)}</p>` : ''}
+          </div>
+          <button onclick="removerAgendamento('${a.id}')" class="text-xs text-red-600 underline shrink-0">remover</button>
+        </li>`).join('');
+    }
+
+    async function removerAgendamento(id) {
+      if (!confirm("Remover este agendamento?")) return;
+      const { error } = await db.from('agendamentos').delete().eq('id', id);
+      if (error) return alert("Erro ao remover: " + error.message);
+      recarregarAgenda();
+    }
+
+    function renderSemanaFixa() {
+      const ativos = new Set(pacientes.filter(p => p.ativo !== false).map(p => p.id));
+      const html = [1, 2, 3, 4, 5, 6, 0].map(dia => {
+        const doDia = horariosFixos
+          .filter(h => h.dia_semana === dia && ativos.has(h.paciente_id))
+          .sort((x, y) => x.hora.localeCompare(y.hora));
+        if (doDia.length === 0) return '';
+        return `
+          <div>
+            <p class="font-semibold text-gray-600">${R.DIAS_SEMANA[dia]}</p>
+            ${doDia.map(h => `<p class="pl-3"><span class="font-mono">${R.fmtHora(h.hora)}</span> ${esc(nomePaciente(h.paciente_id))}</p>`).join('')}
+          </div>`;
+      }).join('');
+      document.getElementById("semana-fixa").innerHTML = html || '<p class="text-gray-500">Nenhum horário fixo cadastrado.</p>';
+    }
+
+    async function carregarHorariosFixos() {
+      const { data, error } = await db.from('horarios_fixos').select('*');
+      if (error) return erroConexao(error);
+      horariosFixos = data;
+    }
+
+    // -------------------------------------------------------------
+    // CADASTRO DE PACIENTES E HORÁRIOS FIXOS
+    // -------------------------------------------------------------
+    const CAMPOS_PACIENTE = {
+      nome: 'p-nome', cpf: 'p-cpf', carteira_unimed: 'p-unimed',
+      telefone_responsavel: 'p-tel', email_responsavel: 'p-email',
+      logradouro: 'p-logradouro', numero: 'p-numero', bairro: 'p-bairro', cidade: 'p-cidade',
+    };
+
+    async function salvarPaciente(e) {
+      e.preventDefault();
+      const id = document.getElementById("p-id").value;
+      const dados = {};
+      Object.entries(CAMPOS_PACIENTE).forEach(([campo, el]) => { dados[campo] = document.getElementById(el).value; });
+
+      let resposta;
+      if (id) {
+        dados.ativo = document.getElementById("p-ativo").checked;
+        resposta = await db.from('pacientes').update(dados).eq('id', id).select().single();
+      } else {
+        resposta = await db.from('pacientes').insert([dados]).select().single();
+      }
+      if (resposta.error) return alert("Erro ao salvar: " + resposta.error.message);
+
+      await carregarPacientes();
+      renderSemanaFixa();
+      carregarDia();
+      // Depois de cadastrar, já abre a edição para definir os horários fixos.
+      editarPaciente(resposta.data.id);
+    }
+
+    function editarPaciente(id) {
+      const p = pacientes.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById("p-id").value = p.id;
+      Object.entries(CAMPOS_PACIENTE).forEach(([campo, el]) => { document.getElementById(el).value = p[campo] || ''; });
+      document.getElementById("p-ativo").checked = p.ativo !== false;
+      document.getElementById("p-ativo-label").classList.remove("hidden");
+      document.getElementById("form-paciente-titulo").innerText = "Editar Paciente";
+      document.getElementById("btn-salvar-paciente").innerText = "Salvar alterações";
+      document.getElementById("btn-cancelar-edicao").classList.remove("hidden");
+      document.getElementById("painel-horarios").classList.remove("hidden");
+      renderHorariosPaciente();
+      document.getElementById("form-paciente").scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function limparFormPaciente() {
+      document.getElementById("form-paciente").reset();
+      document.getElementById("p-id").value = "";
+      document.getElementById("p-ativo-label").classList.add("hidden");
+      document.getElementById("form-paciente-titulo").innerText = "Novo Paciente";
+      document.getElementById("btn-salvar-paciente").innerText = "Cadastrar";
+      document.getElementById("btn-cancelar-edicao").classList.add("hidden");
+      document.getElementById("painel-horarios").classList.add("hidden");
+    }
+
+    function renderHorariosPaciente() {
+      const id = document.getElementById("p-id").value;
+      const doPaciente = horariosFixos
+        .filter(h => h.paciente_id === id)
+        .sort((x, y) => ((x.dia_semana + 6) % 7) - ((y.dia_semana + 6) % 7) || x.hora.localeCompare(y.hora));
+
+      document.getElementById("lista-horarios").innerHTML = doPaciente.length === 0
+        ? '<li class="py-2 text-gray-500">Nenhum horário fixo.</li>'
+        : doPaciente.map(h => `
+          <li class="py-2 flex justify-between">
+            <span>${R.DIAS_SEMANA[h.dia_semana]} às <span class="font-mono">${R.fmtHora(h.hora)}</span></span>
+            <button onclick="removerHorario('${h.id}')" class="text-xs text-red-600 underline">remover</button>
+          </li>`).join('');
+    }
+
+    async function adicionarHorario() {
+      const paciente_id = document.getElementById("p-id").value;
+      const dia_semana = Number(document.getElementById("h-dia").value);
+      const hora = document.getElementById("h-hora").value;
+      if (!hora) return alert("Informe o horário.");
+
+      const { error } = await db.from('horarios_fixos').insert([{ paciente_id, dia_semana, hora }]);
+      if (error) return alert("Erro ao salvar horário: " + error.message);
+
+      document.getElementById("h-hora").value = "";
+      await atualizarHorarios();
+    }
+
+    async function removerHorario(id) {
+      if (!confirm("Remover este horário fixo?")) return;
+      const { error } = await db.from('horarios_fixos').delete().eq('id', id);
+      if (error) return alert("Erro ao remover: " + error.message);
+      await atualizarHorarios();
+    }
+
+    async function atualizarHorarios() {
+      await carregarHorariosFixos();
+      renderHorariosPaciente();
+      renderSemanaFixa();
+      renderListaPacientes();
+      carregarDia();
     }
 
     async function carregarPacientes() {
-      const { data } = await db.from('pacientes').select('*').order('nome');
-      
-      const select = document.getElementById("select-paciente");
-      const selectRel = document.getElementById("rel-paciente");
-      const lista = document.getElementById("lista-pacientes");
+      const { data, error } = await db.from('pacientes').select('*').order('nome');
+      if (error) return erroConexao(error);
+      pacientes = data;
 
-      select.innerHTML = '<option value="">Selecione...</option>';
-      selectRel.innerHTML = '<option value="">Selecione...</option>';
-      lista.innerHTML = '';
+      const ativos = pacientes.filter(p => p.ativo !== false);
+      const opcoes = lista => '<option value="">Selecione o paciente...</option>'
+        + lista.map(p => `<option value="${p.id}">${esc(p.nome)}</option>`).join('');
 
-      if (data) {
-        data.forEach(p => {
-          select.innerHTML += `<option value="${p.id}">${p.nome}</option>`;
-          selectRel.innerHTML += `<option value="${p.id}">${p.nome}</option>`;
-          lista.innerHTML += `<li class="py-2">${p.nome} <span class="text-xs text-gray-400">(${p.carteira_unimed || 'Sem carteira'})</span></li>`;
-        });
-      }
+      document.getElementById("extra-paciente").innerHTML = opcoes(ativos);
+      document.getElementById("ag-paciente").innerHTML = opcoes(ativos);
+      // Na nota fiscal entram também os inativos: a alta pode ter sido no meio do mês.
+      document.getElementById("nf-paciente").innerHTML = opcoes(pacientes);
+
+      renderListaPacientes();
     }
 
-    function compartilharWhatsApp() {
-      const texto = encodeURIComponent(document.getElementById("txt-familia").innerText);
-      window.open(`https://wa.me/?text=${texto}`, '_blank');
+    function renderListaPacientes() {
+      document.getElementById("lista-pacientes").innerHTML = pacientes.map(p => {
+        const horarios = horariosFixos
+          .filter(h => h.paciente_id === p.id)
+          .map(h => `${R.DIAS_SEMANA[h.dia_semana].slice(0, 3)} ${R.fmtHora(h.hora)}`)
+          .join(', ');
+        return `
+          <li class="py-2 flex justify-between items-center gap-2 ${p.ativo === false ? 'opacity-50' : ''}">
+            <div>
+              ${esc(p.nome)} <span class="text-xs text-gray-400">(${esc(p.carteira_unimed || 'Sem carteira')})</span>
+              ${p.ativo === false ? '<span class="text-xs text-gray-500">— inativo</span>' : ''}
+              <p class="text-xs text-gray-500">${horarios || 'Sem horário fixo'}</p>
+            </div>
+            <button onclick="editarPaciente('${p.id}')" class="text-xs text-teal-700 underline shrink-0">editar</button>
+          </li>`;
+      }).join('');
+    }
+
+    // -------------------------------------------------------------
+    // OBSERVAÇÃO DA NOTA FISCAL (DATAS + TOTAL DE SESSÕES NO MÊS)
+    // -------------------------------------------------------------
+    async function gerarObservacao() {
+      const pacienteId = document.getElementById("nf-paciente").value;
+      const mesAno = document.getElementById("nf-mes").value; // formato "YYYY-MM"
+      if (!pacienteId) return alert("Selecione um paciente!");
+      if (!mesAno) return alert("Selecione o mês/ano!");
+
+      const { inicio, fim } = R.intervaloDoMes(mesAno);
+      const { data: atendimentos, error } = await db.from('consultas')
+        .select('id, data_atendimento, horario_inicio')
+        .eq('paciente_id', pacienteId)
+        .gte('data_atendimento', inicio)
+        .lte('data_atendimento', fim)
+        .order('data_atendimento');
+
+      if (error) return alert("Erro ao consultar atendimentos: " + error.message);
+
+      const resultado = document.getElementById("nf-resultado");
+      resultado.classList.remove("hidden");
+
+      if (atendimentos.length === 0) {
+        document.getElementById("nf-datas").innerHTML = '<li class="py-2 text-center text-gray-500">Nenhum atendimento registrado no mês.</li>';
+        document.getElementById("nf-total").innerText = '';
+        document.getElementById("nf-texto").value = '';
+        return;
+      }
+
+      const paciente = pacientes.find(p => p.id === pacienteId);
+      document.getElementById("nf-datas").innerHTML = atendimentos.map(c => `
+        <li class="py-1 flex justify-between">
+          <span>${R.fmtData(c.data_atendimento)} <span class="text-gray-400">${R.DIAS_SEMANA[R.diaDaSemana(c.data_atendimento)]}</span></span>
+          <span class="font-mono text-gray-500">${c.horario_inicio ? new Date(c.horario_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+        </li>`).join('');
+      document.getElementById("nf-total").innerText = `Total: ${atendimentos.length} ${atendimentos.length === 1 ? 'sessão' : 'sessões'}`;
+      document.getElementById("nf-texto").value = R.textoObservacao(paciente, mesAno, atendimentos);
+    }
+
+    async function copiarObservacao() {
+      const texto = document.getElementById("nf-texto");
+      try {
+        await navigator.clipboard.writeText(texto.value);
+      } catch {
+        texto.select();
+        document.execCommand('copy');
+      }
+      const btn = document.getElementById("btn-copiar");
+      btn.innerText = "✓ Copiado";
+      setTimeout(() => { btn.innerText = "📋 Copiar texto"; }, 2000);
     }
   </script>
 </body>
